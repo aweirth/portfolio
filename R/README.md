@@ -1,2 +1,3 @@
 # R
-read me
+-regression project
+-classification
