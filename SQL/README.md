@@ -1,2 +1,8 @@
 # SQL
-read me
+
+-sub queries
+-joins
+-pivot table
+-other later homeworks
+-final project
+
