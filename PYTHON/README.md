@@ -1,2 +1,4 @@
 # PYTHON
-read me
+-into projects?
+-world happiness report
+-cs370 exam
