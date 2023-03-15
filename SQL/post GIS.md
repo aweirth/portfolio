@@ -126,6 +126,3 @@ TO '/Users/alexweirth/Documents/data_351/data/or_county_densities.csv'
 WITH(FORMAT CSV, HEADER)
 ;
 ```
-
-#### Output:
-
