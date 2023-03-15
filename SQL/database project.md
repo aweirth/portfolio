@@ -315,7 +315,7 @@ ALTER TABLE country_incomes ADD FOREIGN KEY (country_code) REFERENCES country_in
 # Visualization
 
 I also wanted to take this project a step further and do some visulaization while I had the data ready; I wanted to see if an economic
-factor, such as income group, had a relationship with earning gold medal vs. silver or bronze in the olympics.
+factor, such as income group, had a relationship with earning gold medal vs. silver or bronze in the olympics. We used python and matplotlib to do this.
 
 ```sql
 -- Query #2
@@ -360,6 +360,19 @@ COPY(
 TO '/Users/alexweirth/Documents/data_351/final_project/medal_dist.csv'
 WITH(FORMAT CSV, HEADER);
 ```
+## Python Notebook
+```python
+import matplotlib.pyplot as plt
+medal_counts = pd.read_csv('/Users/alexweirth/Documents/data_351/final_project/medal_dist.csv')
+```
 
 ## Medal distribution colored by income group:
+```python
+medal_counts.plot(x='income_group',
+        kind='bar',
+        stacked=False,
+        title='medal distribution by income',
+        )
+plt.xticks(rotation = 30)
+```
 ![Medal Distribution](./images/medal_dist.png)
