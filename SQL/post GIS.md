@@ -1,10 +1,8 @@
 # POST GIS - Spatial Analysis
 
-## Working with city 
+## Data Dictionary
 
-# Data Dictionary for Cities Spreadsheets
-
-## cities1000
+### cities1000
 The `cities1000.txt` file is tab delimited and has the following columns:
 
 | Column Name       | Description                                                                                                                                                             |
@@ -30,7 +28,7 @@ The `cities1000.txt` file is tab delimited and has the following columns:
 | modification date | date of last modification in yyyy-MM-dd format                                                                                                                          |
 
 
-## country_info
+### country_info
 The `country_info.txt` file is also tab delimited and has more detailed information about each country
 | Column Name      | Description                                                       |
 |------------------|-------------------------------------------------------------------|
@@ -52,3 +50,82 @@ The `country_info.txt` file is also tab delimited and has more detailed informat
 | languages        | ISO-639 language codes for spoken languages in the country        |
 | neighbors        | Neighboring country iso codes                                     |
 | eq_fips          | Equivalent fips code                                              |
+
+
+# Analysis
+
+Need city location in GIS format - adding geography POINT object in SRID 4326 using existing lat and long columns and GiST index on it.
+
+```sql
+-- SQL to create and populate new column
+ALTER TABLE cities ADD COLUMN geog_loc geography(POINT, 4326);
+UPDATE cities SET geog_loc = ST_SetSRID(ST_MakePoint(longitude,latitude)::geography,4326);
+
+-- SQL to add index
+CREATE INDEX geog_loc_index ON cities USING GIST (geog_loc);
+```
+## Assuming you can see 150km from the airplane, what 5 most populous cities will passengers be able to see from an airplane flying from Portland, OR to Paris?
+
+### Query:
+```sql
+SELECT *
+FROM cities
+WHERE ST_DWithin(ST_SetSRID(ST_MakeLine(ST_MakePoint(-122.67621,45.52345), ST_MakePoint(2.3488, 48.85341)), 4326), geog_loc, 150000)
+ORDER BY population DESC LIMIT 5
+;
+```
+
+## Querying how many cities will you see from each country (country name and its city count, in descending order):
+
+```sql
+COPY(
+  SELECT co.name AS country, COUNT(*) AS city_count
+  FROM cities AS ci
+  JOIN country_info AS co 
+      ON co.iso = ci.country_code
+  WHERE ST_DWithin(ST_SetSRID(ST_MakeLine(ST_MakePoint(-122.67621,45.52345), ST_MakePoint(2.3488, 48.85341)), 4326), geog_loc, 150000)
+  GROUP BY country
+  ORDER BY city_count DESC
+)
+TO '/Users/alexweirth/Documents/data_351/data/cities_per_country.csv'
+WITH(FORMAT CSV, HEADER)
+;
+```
+
+# Working with a Shapefile:
+
+## After importing a shapefile for all U.S. county polygons, we wanted to find population density (people per square kilometer) of all Oregon Counties:
+
+### Query:
+```sql
+-- modifying shapefile so it is only oregon counties
+CREATE TABLE oregon_counties AS(
+  SELECT *
+  FROM counties
+  WHERE statefp10 = '41'
+);
+
+-- query for populations by county and square km for each county into a temp table
+CREATE TEMP TABLE county_pop_km2 AS(
+  SELECT oregon_counties.namelsad10 AS county, 
+      SUM(cities.population) AS population, 
+      SUM(ST_Area(oregon_counties.geom::geography))/1000000 AS km2
+  FROM oregon_counties
+  JOIN cities ON ST_Intersects(cities.geog_loc, oregon_counties.geom)
+  GROUP BY county
+  ORDER BY population DESC
+);
+
+-- Calculate people/km2 and export the CSV
+COPY(
+  SELECT county, ROUND(population/km2::NUMERIC, 2) AS people_per_km2
+  FROM county_pop_km2
+  ORDER BY people_per_km2 DESC
+)
+TO '/Users/alexweirth/Documents/data_351/data/or_county_densities.csv'
+WITH(FORMAT CSV, HEADER)
+;
+```
+
+#### Output:
+
