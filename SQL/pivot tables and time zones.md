@@ -2,7 +2,7 @@
 
 ## Data structure:
 
-![meetings_drawsql](./images/meetings.png)
+![meetings_drawsql](./images/meetings_drawsql.png)
 
 #### Querying users that attended meetings on their birthdays:
 
