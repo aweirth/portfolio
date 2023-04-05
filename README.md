@@ -3,7 +3,7 @@
 <div>
     <img src="SQL/images/portrait.png" alt="Alex Weirth" width="200" height="216" align="left">
     <p>
-      Here's me.
+      Hello! I'm Alex Weirth. 
     </p>
 </div>
 
