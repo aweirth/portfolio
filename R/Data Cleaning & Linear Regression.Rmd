@@ -1,0 +1,285 @@
+---
+title: "Data Cleaning & Linear Regression"
+authors: "Alex Weirth"
+date: "2023-02-09"
+output: pdf_document
+---
+
+# Part 1: Data Wrangling
+
+## Call Libraries
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(broom)
+library(dplyr)
+```
+
+
+## Importing the Data
+```{r}
+life_df <- read.csv("life_data.csv")
+str(life_df)
+```
+
+
+
+
+## Rename colnames to names easier to reference in future code
+
+```{r}
+life_df <- life_df %>%
+  rename("country" = "Country",
+         "year" = "Year",
+         "status" = "Status",
+         "life_exp_yrs" = "Life.expectancy",
+         "adult_mortality" = "Adult.Mortality",
+         "infant_deaths" = "infant.deaths",
+         "alcohol" = "Alcohol",
+         "perc_expend" = "percentage.expenditure",
+         "hep_b" = "Hepatitis.B",
+         "measles" = "Measles",
+         "bmi" = "BMI",
+         "5yr_deaths" = "under.five.deaths",
+         "polio" = "Polio",
+         "tot_expend" = "Total.expenditure",
+         "diphtheria" = "Diphtheria",
+         "hiv_aids" = "HIV.AIDS",
+         "gdp" = "GDP",
+         "population" = "Population",
+         "thin_1to19" = "thinness..1.19.years",
+         "thin_5to9" = "thinness.5.9.years",
+         "inc_comp_resources" = "Income.composition.of.resources",
+         "schooling" = "Schooling"
+         )
+```
+
+
+```{r}
+colnames(life_df)
+```
+
+
+The column names are now much easier for our group to call for future code. Other than that the data is tidy, the only wrangling left to do is perhaps create a few more categorical variables since or data is light on categorical variables.
+
+
+
+## Creating another categorical variable from the hiv_aids column
+
+
+The hiv_aids column looks like it is able to be split into two groups: significantly low and high hiv_aids deaths per 1000 people.
+
+
+```{r}
+hist(life_df$hiv_aids,
+     main = "Distribution of hiv_aids values in life_df")
+```
+```{r}
+ggplot(data = life_df, aes(hiv_aids))+
+  geom_boxplot()
+```
+
+
+
+### Domain Information
+
+After some research, I was able to find reasonable numbers to create our bins from. In 2019, our world in data reports average levels across North America and Europe as approximately 1 deaths per 100,000 people (0.1 in our data). The study reports that higher levels of HIV deaths occur at 100 deaths per 100,000 which means for my data, high levels of hiv deaths would occur at 1 death per 1,000 people so 1 will be the cutoff for these bins.
+
+
+```{r}
+life_df <- life_df %>%
+  mutate(
+    hiv_deaths_cat = case_when(
+      hiv_aids < 1 ~ 'Under 1 Death/1000',
+      TRUE ~ 'Over 1 Death/1000'
+    )
+  )
+```
+
+### Histogram of new column
+```{r}
+ggplot(data = life_df, aes(x = hiv_deaths_cat))+
+  geom_bar()
+```
+
+
+
+
+### Creating a BMI categorical variable
+
+
+I wanted to have one more categorical variable ready if we needed it in the future. Here are the official body mass index categories obtained from the CDC:
+
+
+```{r}
+life_df <- life_df %>%
+  mutate(bmi_cat = case_when(
+    bmi <= 18.5 ~ "underweight",
+    bmi <= 25 ~ "healthy",
+    bmi <= 30 ~ "overweight",
+    bmi <= 100 ~ "obese")
+         )
+```
+
+
+
+
+
+# Part 2: Linear Models
+
+
+## Step 0 - Pairs Plot
+
+```{r, warning=FALSE, message=FALSE}
+library(GGally)
+life_df %>%
+ggpairs(columns=c(4, 7, 11, 16, 17),
+        ggplot2::aes(color = hiv_deaths_cat))
+```
+
+## Step 1 - Identifying Variables
+
+
+### Response: 
+**'life_exp_yrs'** - I am attempting to create a model that can accurately predict life expectancy given a selection of explanatory variables. The unit of this variable is years which is stored as a decimal accurate to 1 tenth of a year. Each record in the data is one country for a specific year, holding that country's average population life expectation.
+
+### Explanantory Numeric: 
+**'bmi'** - This is my first explanatory feature which is a record of a given country population's average BMI for that year. BMI is a calculation of body composition given height and weight.
+
+### Explanatory Categorical:
+**'hiv_deaths_cat'** - This is my derived categorical variable which the creation of was explained in our data wrangling section. The levels of this variable are 'Under 1 Death/1000' and 'Over 1 Death/1000'.
+
+
+## Step 2 - Training and Testing Sets
+
+We are using a 70:30 split for our testing and training sets.
+
+```{r}
+dim(life_df) # 2938
+
+set.seed(123)
+
+trainInd<-sample(1:2938, 2057)
+
+life_df_train<-life_df[trainInd, ]
+life_df_test<-life_df[-trainInd, ]
+```
+
+```{r}
+dim(life_df_train)
+dim(life_df_test)
+```
+
+## Step 3 - Simple Linear Model
+
+```{r}
+life_mod1 <- lm(life_exp_yrs ~ bmi, data = life_df_train)
+summary(life_mod1)
+```
+
+
+### Model: Y = 59.284322 + 0.264514x
+The relationship does appear to be significant; the p-value for bmi is significant at <2e-16. However the r-squared value shows the model does not account for much of the variability in the dataset.
+
+
+## Graphic
+```{r, warning=FALSE, message=FALSE}
+ggplot(data = life_df_train, aes(x=bmi,y=life_exp_yrs))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = FALSE)
+```
+
+
+
+## Step 4 - Parallel Slopes MLR Model
+
+```{r}
+life_mod2 <- lm(life_exp_yrs ~ bmi + hiv_deaths_cat, data = life_df_train)
+summary(life_mod2)
+```
+
+
+### Model for reference group (hiv_deaths_cat Over 1 Death/1000): Y = 53.447460 + 0.132892x
+
+### Model for alt group (hiv_deaths_cat Under 1 Death/1000): Y = (53.447460 + 14.102622) + 0.132892x 
+
+
+## Graphic
+
+```{r, warning=FALSE, message=FALSE}
+ggplot(data = life_df_train, aes(x = bmi, y = life_exp_yrs, color = hiv_deaths_cat))+
+  geom_point()+
+  geom_abline(intercept=life_mod2$coefficients[1], 
+              slope = life_mod2$coefficients[2], color = "red")+
+  geom_abline(intercept=life_mod2$coefficients[1] + life_mod2$coefficients[3], 
+              slope = life_mod2$coefficients[2], color = "blue")
+```
+
+
+
+## Step 5 - MLR with Interaction
+
+```{r}
+life_mod3 <- lm(life_exp_yrs ~ bmi * hiv_deaths_cat, data = life_df_train)
+summary(life_mod3)
+```
+
+### Model for reference group (hiv_deaths_cat Over 1 Death/1000): Y = 51.14432 + 0.23885x
+
+### Model for alt group (hiv_deaths_cat Under 1 Death/1000): Y = (51.14432 + 16.78394) + (0.23885 - 0.11478)x 
+
+
+## Graphic
+
+```{r, warning=FALSE, message=FALSE}
+life_mod3$coefficients
+
+## Reference
+mod3_yint_0<-life_mod3$coefficients[1]
+mod3_slope_0<-life_mod3$coefficients[2]
+
+## Alternative
+mod3_yint_1<-mod3_yint_0 + life_mod3$coefficients[3]
+mod3_slope_1<-mod3_slope_0 + life_mod3$coefficients[4]
+```
+
+```{r, warning=FALSE, message=FALSE}
+ggplot(data=life_df, aes(x=bmi, y=life_exp_yrs, color=hiv_deaths_cat))+
+  geom_point()+
+  geom_abline(intercept=mod3_yint_0, 
+              slope=mod3_slope_0, color="red")+
+  geom_abline(intercept=mod3_yint_1,
+              slope=mod3_slope_1, color="blue")
+```
+
+
+## Step 6 Prediction Tests
+
+### Mod 1
+```{r, warning=FALSE, message=FALSE}
+library(caret)
+life_testPred1<-predict(life_mod1, life_df_test)
+
+RMSE(life_testPred1, life_df_test$life_exp_yrs, na.rm = TRUE)
+```
+
+
+### Mod 2
+```{r}
+life_testPred2<-predict(life_mod2, life_df_test)
+RMSE(life_testPred2, life_df_test$life_exp_yrs, na.rm = TRUE)
+```
+
+
+### Mod 3
+```{r}
+life_testPred3<-predict(life_mod3, life_df_test)
+RMSE(life_testPred3, life_df_test$life_exp_yrs, na.rm = TRUE)
+```
+
+The model with the lowest RMSE is Model 3 (model with interaction between explanatory variables of 'bmi' and 'hiv_deaths_cat' columns).
+
+
+```{r}
+write.csv(life_df, "life_df.csv", row.names=FALSE)
+```
+
