@@ -1,7 +1,7 @@
 # Coursework & Technical Skills Portfolio: Alex Weirth
 
 <div>
-    <img src="SQL/images/portrait.png" alt="Alex Weirth" width="200" height="240" align="left">
+    <img src="SQL/images/portrait.png" alt="Alex Weirth" width="200" height="216" align="left">
     <p>
       Here's me.
     </p>
